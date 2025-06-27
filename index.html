@@ -229,6 +229,27 @@
             transform: translateY(-2px);
         }
         
+        .currency-toggle {
+            background: rgba(0, 113, 227, 0.1);
+            color: var(--primary);
+            border: 1px solid rgba(0, 113, 227, 0.3);
+            border-radius: 20px;
+            padding: 10px 20px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin: 0 auto;
+            margin-top: 15px;
+        }
+        
+        .currency-toggle:hover {
+            background: rgba(0, 113, 227, 0.2);
+        }
+        
         .results {
             background: var(--gray-100);
             border-radius: var(--border-radius);
@@ -245,6 +266,7 @@
         .results-header {
             text-align: center;
             margin-bottom: 24px;
+            position: relative;
         }
         
         .results-header h2 {
@@ -427,30 +449,7 @@
         <div class="form-container">
             <div class="section-title">
                 <i class="fas fa-sliders-h"></i>
-                <span>투자 정보 입력</span>
-            </div>
-            
-            <div class="input-group">
-                <label for="initialBalance">
-                    <i class="fas fa-wallet"></i>
-                    <span>시작 잔고 (원)</span>
-                </label>
-                <div class="input-wrapper">
-                    <i class="fas fa-won-sign"></i>
-                    <input type="number" id="initialBalance" placeholder="10,000,000">
-                </div>
-            </div>
-            
-            <div class="input-group">
-                <label for="initialExchangeRate">
-                    <i class="fas fa-history"></i>
-                    <span>시작 당시 환율 (원/$)</span>
-                </label>
-                <div class="input-wrapper">
-                    <i class="fas fa-exchange-alt"></i>
-                    <input type="number" id="initialExchangeRate" placeholder="1,200" step="0.01">
-                    <div class="currency">원/$</div>
-                </div>
+                <span>환율 정보</span>
             </div>
             
             <div class="input-group">
@@ -520,25 +519,29 @@
         <div class="results" id="results">
             <div class="results-header">
                 <h2>투자 분석 결과</h2>
-                <p>환율 변동과 주식 가격 변동을 반영한 수익률</p>
+                <p>주식 가격 변동을 반영한 수익률</p>
             </div>
             
             <div class="result-grid">
                 <div class="result-card">
-                    <h3>수익금 ($)</h3>
-                    <div class="result-value" id="profitDollar">-</div>
+                    <h3>수익금</h3>
+                    <div class="result-value" id="profitDisplay">-</div>
                 </div>
                 
                 <div class="result-card">
-                    <h3>수익율 (%)</h3>
+                    <h3>수익율</h3>
                     <div class="result-value" id="profitPercent">-</div>
                 </div>
                 
                 <div class="balance-card">
-                    <h3>예상 잔고 (원)</h3>
-                    <div class="result-value" id="balanceWon">-</div>
+                    <h3>예상 잔고</h3>
+                    <div class="result-value" id="balanceDisplay">-</div>
                 </div>
             </div>
+            
+            <button class="currency-toggle" id="currencyToggle">
+                <i class="fas fa-exchange-alt"></i> <span id="toggleText">달러로 보기</span>
+            </button>
             
             <button class="btn btn-share" id="shareBtn">
                 <i class="fas fa-share-alt"></i> 결과 공유하기
@@ -557,20 +560,27 @@
             const calculateBtn = document.getElementById('calculateBtn');
             const resetBtn = document.getElementById('resetBtn');
             const shareBtn = document.getElementById('shareBtn');
+            const currencyToggle = document.getElementById('currencyToggle');
             const results = document.getElementById('results');
             const toast = document.getElementById('toast');
+            const toggleText = document.getElementById('toggleText');
+            
+            // 통화 상태 관리 (로컬 스토리지에서 불러오기)
+            let showInDollars = localStorage.getItem('currencyPref') === 'dollar';
+            
+            // 초기 토글 텍스트 설정
+            updateToggleText();
             
             calculateBtn.addEventListener('click', calculateProfit);
             resetBtn.addEventListener('click', resetForm);
             shareBtn.addEventListener('click', shareResults);
+            currencyToggle.addEventListener('click', toggleCurrency);
             
             // 페이지 로드 시 URL 파라미터 확인
             window.addEventListener('load', function() {
                 const urlParams = new URLSearchParams(window.location.search);
                 if (urlParams.size > 0) {
                     // URL에서 파라미터 읽기
-                    document.getElementById('initialBalance').value = urlParams.get('ib') || '';
-                    document.getElementById('initialExchangeRate').value = urlParams.get('ier') || '';
                     document.getElementById('currentExchangeRate').value = urlParams.get('cer') || '';
                     document.getElementById('purchasePrice').value = urlParams.get('pp') || '';
                     document.getElementById('quantity').value = urlParams.get('qty') || '';
@@ -581,62 +591,78 @@
                 }
             });
             
+            // 통화 전환 함수
+            function toggleCurrency() {
+                showInDollars = !showInDollars;
+                // 로컬 스토리지에 저장
+                localStorage.setItem('currencyPref', showInDollars ? 'dollar' : 'won');
+                
+                // 계산 결과 업데이트
+                if (results.classList.contains('show')) {
+                    calculateProfit();
+                }
+                
+                // 토글 텍스트 업데이트
+                updateToggleText();
+            }
+            
+            function updateToggleText() {
+                toggleText.textContent = showInDollars ? '원화로 보기' : '달러로 보기';
+            }
+            
             // 계산 함수
             function calculateProfit() {
                 // 입력 값 가져오기
-                const initialBalance = parseFloat(document.getElementById('initialBalance').value) || 0;
-                const initialExchangeRate = parseFloat(document.getElementById('initialExchangeRate').value) || 0;
                 const currentExchangeRate = parseFloat(document.getElementById('currentExchangeRate').value) || 0;
                 const purchasePrice = parseFloat(document.getElementById('purchasePrice').value) || 0;
                 const quantity = parseFloat(document.getElementById('quantity').value) || 0;
                 const currentPrice = parseFloat(document.getElementById('currentPrice').value) || 0;
                 
+                // 시작 잔고 계산 (구매 평단가 * 수량 * 환율)
+                const initialBalance = purchasePrice * quantity * currentExchangeRate;
+                
                 // 계산 로직
                 // 1. 수익금 ($) = (현재평단가 - 구매평단가) * 수량
                 const profitDollar = (currentPrice - purchasePrice) * quantity;
                 
-                // 2. 수익율 (%) = (수익금 / (구매평단가 * 수량)) * 100
+                // 2. 수익금 (원) = 수익금($) * 환율
+                const profitWon = profitDollar * currentExchangeRate;
+                
+                // 3. 수익율 (%) = (수익금 / (구매평단가 * 수량)) * 100
                 const investment = purchasePrice * quantity;
                 const profitPercent = investment !== 0 ? (profitDollar / investment) * 100 : 0;
                 
-                // 3. 잔고 (원) 계산
-                // 초기 달러 = 시작 잔고 / 시작 당시 환율
-                const initialDollars = initialExchangeRate !== 0 ? initialBalance / initialExchangeRate : 0;
+                // 4. 잔고 계산
+                // 잔고($) = 현재평단가 * 수량
+                const balanceDollar = currentPrice * quantity;
                 
-                // 주식 구매에 사용된 달러 = 구매평단가 * 수량
-                const dollarsUsed = purchasePrice * quantity;
-                
-                // 남은 달러 = 초기 달러 - 주식 구매에 사용된 달러
-                const remainingDollars = initialDollars - dollarsUsed;
-                
-                // 현재 주식 가치 = 현재평단가 * 수량
-                const currentStockValue = currentPrice * quantity;
-                
-                // 총 달러 자산 = 현재 주식 가치 + 남은 달러
-                const totalDollars = currentStockValue + remainingDollars;
-                
-                // 잔고 (원) = 총 달러 자산 * 현재 환율
-                let balanceWon = totalDollars * currentExchangeRate;
-                
-                // NaN 처리 및 소수점 제거
-                if (isNaN(balanceWon)) {
-                    balanceWon = 0;
-                } else {
-                    balanceWon = Math.round(balanceWon);
-                }
+                // 잔고(원) = 잔고($) * 환율
+                const balanceWon = balanceDollar * currentExchangeRate;
                 
                 // 결과 표시
-                document.getElementById('profitDollar').textContent = 
-                    profitDollar >= 0 ? `+$${profitDollar.toFixed(2)}` : `-$${Math.abs(profitDollar).toFixed(2)}`;
+                if (showInDollars) {
+                    // 달러로 표시
+                    document.getElementById('profitDisplay').textContent = 
+                        profitDollar >= 0 ? `+$${profitDollar.toFixed(2)}` : `-$${Math.abs(profitDollar).toFixed(2)}`;
+                    
+                    document.getElementById('balanceDisplay').textContent = 
+                        `$${balanceDollar.toFixed(2)}`;
+                } else {
+                    // 원화로 표시
+                    document.getElementById('profitDisplay').textContent = 
+                        profitWon >= 0 ? `+${Math.round(profitWon).toLocaleString('ko-KR')}원` : 
+                        `-${Math.round(Math.abs(profitWon)).toLocaleString('ko-KR')}원`;
+                    
+                    document.getElementById('balanceDisplay').textContent = 
+                        `${Math.round(balanceWon).toLocaleString('ko-KR')}원`;
+                }
                 
+                // 수익율 표시 (항상 동일)
                 document.getElementById('profitPercent').textContent = 
                     profitPercent >= 0 ? `+${profitPercent.toFixed(2)}%` : `${profitPercent.toFixed(2)}%`;
                 
-                document.getElementById('balanceWon').textContent = 
-                    `${balanceWon.toLocaleString('ko-KR')}원`;
-                
                 // 수익/손실에 따라 색상 변경
-                document.getElementById('profitDollar').className = profitDollar >= 0 ? 
+                document.getElementById('profitDisplay').className = profitDollar >= 0 ? 
                     'result-value result-positive' : 'result-value result-negative';
                 
                 document.getElementById('profitPercent').className = profitPercent >= 0 ? 
@@ -655,8 +681,6 @@
             // URL 파라미터 업데이트 함수
             function updateUrlWithParams() {
                 const params = new URLSearchParams();
-                params.append('ib', document.getElementById('initialBalance').value);
-                params.append('ier', document.getElementById('initialExchangeRate').value);
                 params.append('cer', document.getElementById('currentExchangeRate').value);
                 params.append('pp', document.getElementById('purchasePrice').value);
                 params.append('qty', document.getElementById('quantity').value);
@@ -712,18 +736,16 @@
             
             // 초기화 함수
             function resetForm() {
-                document.getElementById('initialBalance').value = '';
-                document.getElementById('initialExchangeRate').value = '';
                 document.getElementById('currentExchangeRate').value = '';
                 document.getElementById('purchasePrice').value = '';
                 document.getElementById('quantity').value = '';
                 document.getElementById('currentPrice').value = '';
                 
-                document.getElementById('profitDollar').textContent = '-';
+                document.getElementById('profitDisplay').textContent = '-';
                 document.getElementById('profitPercent').textContent = '-';
-                document.getElementById('balanceWon').textContent = '-';
+                document.getElementById('balanceDisplay').textContent = '-';
                 
-                document.getElementById('profitDollar').className = 'result-value';
+                document.getElementById('profitDisplay').className = 'result-value';
                 document.getElementById('profitPercent').className = 'result-value';
                 
                 results.classList.remove('show');
