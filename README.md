@@ -1,5 +1,5 @@
 # StockYield
-미국 주식 수익율 계산기 by DeepSeek
+미국 주식 수익율 계산기 by DeepSeek  
 [🌐바로가기](https://apwlq.github.io/StockYield/)
 
 ---
