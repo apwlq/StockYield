@@ -574,6 +574,8 @@
             left: 50%;
             transform: translateX(-50%);
             background: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(1px);
+            -webkit-backdrop-filter: blur(1px);
             color: white;
             padding: 15px 30px;
             border-radius: 50px;
@@ -822,7 +824,7 @@
         shareBtn.addEventListener('click', shareResults);
         saveBtn.addEventListener('click', saveAsImage);
         currencyToggle.addEventListener('click', toggleCurrency);
-        fetchRateBtn.addEventListener('click', fetchExchangeRate);
+        fetchRateBtn.addEventListener('click', fetchExchangeRateWithRefresh);
 
         // 페이지 로드 시 URL 파라미터 확인
         window.addEventListener('load', function() {
@@ -842,50 +844,68 @@
             }
         });
 
-        // 환율 가져오기 함수
-        async function fetchExchangeRate() {
+        // 환율 가져오기 및 리프레시 통합 함수
+        async function fetchExchangeRateWithRefresh() {
             const btn = fetchRateBtn;
             const originalText = btn.innerHTML;
 
-            // 버튼을 로딩 상태로 변경
             btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 환율 가져오는 중...';
             btn.disabled = true;
 
             try {
+                // 먼저 리프레시 시도
+                const refreshResponse = await fetch('https://exchange.jnenergy.kr/api/usd-rate/refresh', {
+                    method: 'POST'
+                });
+
+                const refreshData = await refreshResponse.json();
+
+                if (refreshData.status === 'success') {
+                    showToast('환율이 새로고침되었습니다!');
+                } else if (refreshData.secondsLeft) {
+                    const seconds = refreshData.secondsLeft;
+
+                    function formatTime(sec) {
+                        const m = Math.floor(sec / 60);
+                        const s = sec % 60;
+                        return `다음 업데이트는 ${m > 0 ? m + '분 ' : ''}${s}초 후 입니다.`;
+                    }
+
+                    showToast(`${formatTime(seconds)}`);
+                }
+
+                // 리프레시와 상관없이 환율 가져오기
                 const response = await fetch('https://exchange.jnenergy.kr/api/usd-rate');
                 if (!response.ok) {
                     throw new Error('환율 정보를 가져오는데 실패했습니다.');
                 }
 
                 const data = await response.json();
-
-                // 환율 문자열에서 쉼표 제거하고 숫자로 변환
                 const exchangeRate = parseFloat(data.exchangeRate.replace(/,/g, ''));
-
                 if (isNaN(exchangeRate)) {
                     throw new Error('잘못된 환율 데이터입니다.');
                 }
 
-                // 환율 입력 필드에 값 설정
                 currentExchangeRateInput.value = exchangeRate;
 
-                // 환율 정보 표시
                 const date = new Date(data.datetime);
-                const formattedDate = `${date.getFullYear()}-${(date.getMonth()+1).toString().padStart(2, '0')}-${date.getDate().toString().padStart(2, '0')} ${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`;
+                const formattedDate = `${date.getFullYear()}-${(date.getMonth() + 1)
+                    .toString()
+                    .padStart(2, '0')}-${date.getDate().toString().padStart(2, '0')} ${date
+                    .getHours()
+                    .toString()
+                    .padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`;
+
                 rateInfo.innerHTML = `최신 환율: ${data.exchangeRate}원 (업데이트: ${formattedDate})`;
-
-                // 성공 메시지 표시
-                showToast('최신 환율 정보를 가져왔습니다!');
-
-                // 자동으로 계산하기
+                rateInfo.style.color = ''; // 성공 시 색상 초기화
                 setTimeout(calculateProfit, 500);
+
             } catch (error) {
                 console.error('Error fetching exchange rate:', error);
                 rateInfo.innerHTML = '환율 정보를 가져오는데 실패했습니다. 직접 입력해주세요.';
                 rateInfo.style.color = 'var(--danger)';
                 showToast(error.message || '환율 정보를 가져오는 중 오류가 발생했습니다.');
             } finally {
-                // 버튼 상태 복원
                 btn.innerHTML = originalText;
                 btn.disabled = false;
             }
