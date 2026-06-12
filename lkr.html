@@ -1,0 +1,656 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>StockYield Pro - 국내 주식 수익 계산기</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
+    <style>
+        :root {
+            --success: #ff3b30;
+            --danger: #0071e3;
+            --glass-bg: rgba(255, 255, 255, 0.45);
+            --glass-border: rgba(255, 255, 255, 0.6);
+            --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            --text-main: #1d1d1f;
+            --text-muted: #5e5e62;
+            --radius-main: 32px;
+            --radius-inner: 20px;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        body {
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+            color: var(--text-main);
+            background: linear-gradient(45deg, #ffcfdf 0%, #b0f3f1 50%, #e6e3ff 100%);
+            background-size: 400% 400%;
+            animation: liquidBackground 15s ease infinite;
+            overflow-x: hidden;
+        }
+
+        @keyframes liquidBackground {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
+        .blob {
+            position: absolute;
+            filter: blur(80px);
+            z-index: -1;
+            opacity: 0.6;
+        }
+
+        .blob-1 { top: 10%; left: 10%; width: 300px; height: 300px; background: #ff9a9e; border-radius: 50%; animation: float 8s ease-in-out infinite; }
+        .blob-2 { bottom: 10%; right: 10%; width: 400px; height: 400px; background: #a1c4fd; border-radius: 50%; animation: float 10s ease-in-out infinite reverse; }
+
+        @keyframes float {
+            0% { transform: translateY(0px) scale(1); }
+            50% { transform: translateY(-30px) scale(1.1); }
+            100% { transform: translateY(0px) scale(1); }
+        }
+
+        .container {
+            width: 100%;
+            max-width: 1000px;
+            background: var(--glass-bg);
+            backdrop-filter: blur(30px) saturate(150%);
+            -webkit-backdrop-filter: blur(30px) saturate(150%);
+            border: 1px solid var(--glass-border);
+            border-radius: var(--radius-main);
+            box-shadow: var(--glass-shadow);
+            overflow: hidden;
+            position: relative;
+            padding: 40px;
+        }
+
+        .container::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0; height: 1px;
+            background: linear-gradient(90deg, rgba(255,255,255,0), rgba(255,255,255,0.8), rgba(255,255,255,0));
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+
+        .header h1 {
+            font-weight: 700;
+            font-size: 38px;
+            letter-spacing: -1px;
+            background: linear-gradient(135deg, #1d1d1f 0%, #5e5e62 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 8px;
+        }
+
+        .header p {
+            font-size: 16px;
+            color: var(--text-muted);
+            font-weight: 400;
+        }
+
+        .main-content {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 30px;
+        }
+
+        .form-section, .result-section {
+            flex: 1;
+            min-width: 320px;
+            background: rgba(255, 255, 255, 0.3);
+            border-radius: var(--radius-inner);
+            padding: 30px;
+            border: 1px solid rgba(255, 255, 255, 0.4);
+            box-shadow: inset 0 0 20px rgba(255, 255, 255, 0.2);
+        }
+
+        .result-section {
+            display: none;
+        }
+
+        .result-section.show {
+            display: block;
+            animation: glassFadeIn 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+
+        @keyframes glassFadeIn {
+            from { opacity: 0; transform: translateY(20px) scale(0.98); }
+            to { opacity: 1; transform: translateY(0) scale(1); }
+        }
+
+        .section-title {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 25px;
+            color: var(--text-main);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .input-group {
+            margin-bottom: 20px;
+        }
+
+        .input-group label {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 10px;
+            font-weight: 500;
+            font-size: 14px;
+            color: var(--text-muted);
+        }
+
+        .input-wrapper, .ticker-group input {
+            position: relative;
+            display: flex;
+            align-items: center;
+            background: rgba(255, 255, 255, 0.5);
+            border-radius: 16px;
+            border: 1px solid rgba(255, 255, 255, 0.6);
+            transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+            box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.02);
+        }
+
+        .input-wrapper:focus-within, .ticker-group input:focus {
+            background: rgba(255, 255, 255, 0.8);
+            border-color: rgba(0, 113, 227, 0.3);
+            box-shadow: 0 0 0 4px rgba(0, 113, 227, 0.1), inset 0 2px 4px rgba(0, 0, 0, 0.01);
+        }
+
+        .input-wrapper i {
+            position: absolute;
+            left: 16px;
+            color: var(--text-muted);
+            font-size: 16px;
+        }
+
+        .input-group input {
+            width: 100%;
+            padding: 16px 16px 16px 45px;
+            border: none;
+            border-radius: 16px;
+            font-size: 16px;
+            background: transparent;
+            font-weight: 500;
+            color: var(--text-main);
+        }
+
+        .ticker-group input {
+            padding: 16px;
+            flex: 1;
+        }
+
+        .input-group input:focus { outline: none; }
+        .input-group input::placeholder { color: #999; font-weight: 400; }
+        
+        input[type="number"]::-webkit-outer-spin-button,
+        input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+        input[type="number"] { -moz-appearance: textfield; }
+
+        .currency {
+            position: absolute;
+            right: 16px;
+            color: var(--text-muted);
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        .ticker-group {
+            display: flex;
+            gap: 10px;
+        }
+
+        .btn {
+            padding: 16px;
+            border: 1px solid rgba(255, 255, 255, 0.8);
+            border-radius: 16px;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            background: rgba(255, 255, 255, 0.6);
+            color: var(--text-main);
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            background: rgba(255, 255, 255, 0.9);
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+        }
+
+        .btn:active { transform: translateY(0); }
+
+        .btn-calculate {
+            background: linear-gradient(135deg, rgba(0, 113, 227, 0.8), rgba(0, 89, 179, 0.8));
+            color: white;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            flex: 2;
+        }
+
+        .btn-calculate:hover {
+            background: linear-gradient(135deg, rgba(0, 113, 227, 0.95), rgba(0, 89, 179, 0.95));
+        }
+
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 25px;
+        }
+
+        .btn-reset { flex: 1; }
+
+        .results-header {
+            text-align: center;
+            margin-bottom: 25px;
+        }
+
+        .stock-ticker {
+            display: inline-block;
+            background: rgba(255, 255, 255, 0.8);
+            color: var(--text-main);
+            padding: 6px 16px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: 600;
+            border: 1px solid rgba(255, 255, 255, 1);
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+            margin-bottom: 15px;
+        }
+
+        .result-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+            margin-bottom: 25px;
+        }
+
+        .result-card, .balance-card, .investment-card {
+            background: rgba(255, 255, 255, 0.6);
+            border: 1px solid rgba(255, 255, 255, 0.8);
+            border-radius: 20px;
+            padding: 20px;
+            text-align: center;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.03);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+        }
+
+        .result-card h3, .balance-card h3, .investment-card h3 {
+            font-size: 13px;
+            color: var(--text-muted);
+            font-weight: 500;
+            margin-bottom: 8px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .result-value {
+            font-size: 24px;
+            font-weight: 700;
+            letter-spacing: -0.5px;
+        }
+
+        .result-positive { color: var(--success); text-shadow: 0 2px 10px rgba(255, 59, 48, 0.2); }
+        .result-negative { color: var(--danger); text-shadow: 0 2px 10px rgba(0, 113, 227, 0.2); }
+
+        .balance-card { grid-column: span 2; }
+        .investment-card { grid-column: span 2; }
+
+        .balance-card .result-value { font-size: 28px; color: var(--text-main); }
+        .investment-card .result-value { font-size: 22px; color: var(--text-main); }
+
+        .result-buttons {
+            display: flex;
+            gap: 10px;
+        }
+
+        .result-buttons .btn { flex: 1; font-size: 14px; padding: 14px; }
+
+        .disclaimer {
+            margin-top: 30px;
+            font-size: 12px;
+            color: rgba(29, 29, 31, 0.5);
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* 캡처를 위한 솔리드 렌더링 영역 (html2canvas는 backdrop-filter를 지원하지 않음) */
+        .capture-results {
+            position: fixed;
+            top: -9999px; left: -9999px;
+            width: 600px;
+            background: #ffffff;
+            border-radius: 24px;
+            padding: 40px;
+            z-index: 1000;
+        }
+
+        .capture-results .result-card { background: #f5f5f7; border: none; }
+        .capture-results .balance-card { background: #f5f5f7; border: none; }
+        .capture-results .investment-card { background: #f5f5f7; border: none; }
+
+        @media (max-width: 768px) {
+            .container { padding: 25px; border-radius: 24px; }
+            .header h1 { font-size: 30px; }
+            .main-content { flex-direction: column; gap: 20px; }
+            .result-buttons { flex-direction: column; }
+        }
+    </style>
+</head>
+<body>
+<div class="blob blob-1"></div>
+<div class="blob blob-2"></div>
+
+<div class="container">
+    <div class="header">
+        <h1>StockYield Pro</h1>
+        <p>국내 주식 수익률을 정확하게 계산하는 전문 도구</p>
+    </div>
+
+    <div class="main-content">
+        <div class="form-section">
+            <div class="section-title">
+                <i class="fas fa-sliders-h"></i> 주식 정보 입력
+            </div>
+
+            <div class="input-group">
+                <label for="purchasePrice">평단가*</label>
+                <div class="input-wrapper">
+                    <i class="fas fa-tag"></i>
+                    <input type="number" id="purchasePrice" placeholder="평단가 입력 (예: 72500)">
+                    <div class="currency">원</div>
+                </div>
+            </div>
+
+            <div class="input-group">
+                <label for="quantity">보유 수량*</label>
+                <div class="input-wrapper">
+                    <i class="fas fa-layer-group"></i>
+                    <input type="number" id="quantity" placeholder="보유 수량 입력 (예: 10)">
+                    <div class="currency">주</div>
+                </div>
+            </div>
+
+            <div class="input-group">
+                <label for="stockTicker">종목명 또는 단축코드</label>
+                <div class="ticker-group">
+                    <input type="text" id="stockTicker" placeholder="종목명/코드 입력">
+                    <button class="btn" id="fetchStockBtn">
+                        <i class="fas fa-sync"></i> 동기화
+                    </button>
+                </div>
+            </div>
+
+            <div class="input-group">
+                <label for="currentPrice">현재가 또는 희망가*</label>
+                <div class="input-wrapper">
+                    <i class="fas fa-chart-pie"></i>
+                    <input type="number" id="currentPrice" placeholder="현재가/희망가 입력">
+                    <div class="currency">원</div>
+                </div>
+            </div>
+
+            <div class="button-group">
+                <button class="btn btn-calculate" id="calculateBtn">
+                    <i class="fas fa-calculator"></i> 계산하기
+                </button>
+                <button class="btn btn-reset" id="resetBtn">
+                    <i class="fas fa-redo"></i> 초기화
+                </button>
+            </div>
+        </div>
+
+        <div class="result-section" id="resultSection">
+            <div class="results-header">
+                <div id="tickerDisplay" class="stock-ticker">-</div>
+            </div>
+
+            <div class="result-grid">
+                <div class="result-card">
+                    <h3>수익금</h3>
+                    <div class="result-value" id="profitDisplay">-</div>
+                </div>
+
+                <div class="result-card">
+                    <h3>수익률</h3>
+                    <div class="result-value" id="profitPercent">-</div>
+                </div>
+
+                <div class="investment-card">
+                    <h3>초기 투자 금액</h3>
+                    <div class="result-value" id="initialInvestmentDisplay">-</div>
+                </div>
+
+                <div class="balance-card">
+                    <h3>예상 잔고</h3>
+                    <div class="result-value" id="balanceDisplay">-</div>
+                </div>
+            </div>
+
+            <div class="result-buttons">
+                <button class="btn" id="shareBtn"><i class="fas fa-share-alt"></i> 결과 공유</button>
+                <button class="btn" id="saveBtn"><i class="fas fa-camera"></i> 이미지 저장</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="disclaimer">
+        * 계산 결과는 거래 수수료 및 거래세 등을 고려하지 않은 예상 수치이며, 실제 수익률과 다를 수 있습니다.
+    </div>
+
+    <div class="capture-results" id="captureResults">
+        <div class="results-header" style="text-align:center; margin-bottom: 30px;">
+            <h2 style="font-size: 28px; margin-bottom: 10px;">StockYield Pro 분석 결과</h2>
+            <div id="captureTickerDisplay" class="stock-ticker" style="background: #f0f0f0; border: none; padding: 8px 20px;">-</div>
+        </div>
+        <div class="result-grid">
+            <div class="result-card">
+                <h3>수익금</h3>
+                <div class="result-value" id="captureProfitDisplay">-</div>
+            </div>
+            <div class="result-card">
+                <h3>수익률</h3>
+                <div class="result-value" id="captureProfitPercent">-</div>
+            </div>
+            <div class="investment-card">
+                <h3>초기 투자 금액</h3>
+                <div class="result-value" id="captureInitialInvestmentDisplay" style="color: #1d1d1f;">-</div>
+            </div>
+            <div class="balance-card">
+                <h3>예상 잔고</h3>
+                <div class="result-value" id="captureBalanceDisplay" style="color: #1d1d1f;">-</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const calculateBtn = document.getElementById('calculateBtn');
+        const resetBtn = document.getElementById('resetBtn');
+        const shareBtn = document.getElementById('shareBtn');
+        const saveBtn = document.getElementById('saveBtn');
+        const fetchStockBtn = document.getElementById('fetchStockBtn');
+        const resultSection = document.getElementById('resultSection');
+        const stockTickerInput = document.getElementById('stockTicker');
+        const tickerDisplay = document.getElementById('tickerDisplay');
+        const captureTickerDisplay = document.getElementById('captureTickerDisplay');
+
+        calculateBtn.addEventListener('click', calculateProfit);
+        resetBtn.addEventListener('click', resetForm);
+        shareBtn.addEventListener('click', shareResults);
+        saveBtn.addEventListener('click', saveAsImage);
+        fetchStockBtn.addEventListener('click', fetchStockPrice);
+
+        stockTickerInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') fetchStockPrice();
+        });
+
+        window.addEventListener('load', function() {
+            const urlParams = new URLSearchParams(window.location.search);
+            if (urlParams.size > 0) {
+                document.getElementById('purchasePrice').value = urlParams.get('pp') || '';
+                document.getElementById('quantity').value = urlParams.get('qty') || '';
+                document.getElementById('currentPrice').value = urlParams.get('cp') || '';
+                stockTickerInput.value = urlParams.get('ticker') || '';
+                
+                if (stockTickerInput.value) {
+                    tickerDisplay.textContent = stockTickerInput.value.toUpperCase();
+                    captureTickerDisplay.textContent = stockTickerInput.value.toUpperCase();
+                }
+                setTimeout(calculateProfit, 300);
+            }
+        });
+
+        async function fetchStockPrice() {
+            const ticker = stockTickerInput.value.trim();
+            if (!ticker) {
+                alert('종목명 또는 단축코드를 입력해주세요');
+                return;
+            }
+            const btn = fetchStockBtn;
+            const originalText = btn.innerHTML;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+            btn.disabled = true;
+
+            setTimeout(() => {
+                alert('주가 동기화 API 연동이 필요합니다.');
+                tickerDisplay.textContent = ticker;
+                captureTickerDisplay.textContent = ticker;
+                btn.innerHTML = originalText;
+                btn.disabled = false;
+            }, 500);
+        }
+
+        function calculateProfit() {
+            const purchasePrice = parseFloat(document.getElementById('purchasePrice').value) || 0;
+            const quantity = parseFloat(document.getElementById('quantity').value) || 0;
+            const currentPrice = parseFloat(document.getElementById('currentPrice').value) || 0;
+
+            if (purchasePrice === 0 || quantity === 0) {
+                alert('평단가와 수량을 입력해 주세요.');
+                return;
+            }
+
+            const initialInvestment = purchasePrice * quantity;
+            const balance = currentPrice * quantity;
+            const profit = balance - initialInvestment;
+            const profitPercent = initialInvestment !== 0 ? (profit / initialInvestment) * 100 : 0;
+
+            const formattedProfit = profit >= 0 
+                ? `+${Math.round(profit).toLocaleString('ko-KR')}원` 
+                : `-${Math.round(Math.abs(profit)).toLocaleString('ko-KR')}원`;
+                
+            const formattedPercent = profitPercent >= 0 
+                ? `+${profitPercent.toFixed(2)}%` 
+                : `${profitPercent.toFixed(2)}%`;
+
+            document.getElementById('profitDisplay').textContent = formattedProfit;
+            document.getElementById('profitPercent').textContent = formattedPercent;
+            document.getElementById('initialInvestmentDisplay').textContent = `${Math.round(initialInvestment).toLocaleString('ko-KR')}원`;
+            document.getElementById('balanceDisplay').textContent = `${Math.round(balance).toLocaleString('ko-KR')}원`;
+
+            const colorClass = profit >= 0 ? 'result-value result-positive' : 'result-value result-negative';
+            document.getElementById('profitDisplay').className = colorClass;
+            document.getElementById('profitPercent').className = colorClass;
+
+            const ticker = stockTickerInput.value.trim();
+            tickerDisplay.textContent = ticker || '미지정 종목';
+            captureTickerDisplay.textContent = ticker || '미지정 종목';
+
+            resultSection.classList.add('show');
+            updateUrlWithParams();
+
+            document.getElementById('captureProfitDisplay').textContent = formattedProfit;
+            document.getElementById('captureProfitDisplay').className = colorClass;
+            document.getElementById('captureProfitPercent').textContent = formattedPercent;
+            document.getElementById('captureProfitPercent').className = colorClass;
+            document.getElementById('captureInitialInvestmentDisplay').textContent = `${Math.round(initialInvestment).toLocaleString('ko-KR')}원`;
+            document.getElementById('captureBalanceDisplay').textContent = `${Math.round(balance).toLocaleString('ko-KR')}원`;
+        }
+
+        function saveAsImage() {
+            saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 저장 중...';
+            saveBtn.disabled = true;
+
+            html2canvas(document.getElementById('captureResults'), {
+                scale: 2, backgroundColor: '#ffffff', useCORS: true, logging: false
+            }).then(canvas => {
+                const link = document.createElement('a');
+                link.download = 'stockyield-pro-result.png';
+                link.href = canvas.toDataURL('image/png');
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                saveBtn.innerHTML = '<i class="fas fa-camera"></i> 이미지 저장';
+                saveBtn.disabled = false;
+            }).catch(err => {
+                alert('이미지 저장 중 오류가 발생했습니다.');
+                saveBtn.innerHTML = '<i class="fas fa-camera"></i> 이미지 저장';
+                saveBtn.disabled = false;
+            });
+        }
+
+        function updateUrlWithParams() {
+            const params = new URLSearchParams();
+            params.append('pp', document.getElementById('purchasePrice').value);
+            params.append('qty', document.getElementById('quantity').value);
+            params.append('cp', document.getElementById('currentPrice').value);
+            params.append('ticker', stockTickerInput.value);
+            const newUrl = window.location.origin + window.location.pathname + '?' + params.toString();
+            window.history.replaceState({}, '', newUrl);
+        }
+
+        function shareResults() {
+            const shareUrl = window.location.href;
+            if (navigator.share) {
+                navigator.share({ title: 'StockYield Pro', text: '주식 수익 계산 결과', url: shareUrl }).catch(() => copyToClipboard(shareUrl));
+            } else {
+                copyToClipboard(shareUrl);
+            }
+        }
+
+        function copyToClipboard(text) {
+            navigator.clipboard.writeText(text).then(() => alert('링크가 복사되었습니다.')).catch(() => alert('링크 복사 실패'));
+        }
+
+        function resetForm() {
+            document.getElementById('purchasePrice').value = '';
+            document.getElementById('quantity').value = '';
+            document.getElementById('currentPrice').value = '';
+            stockTickerInput.value = '';
+            resultSection.classList.remove('show');
+            window.history.replaceState({}, document.title, window.location.pathname);
+        }
+    });
+</script>
+</body>
+</html>
